@@ -1,0 +1,17 @@
+{
+  "langrev": "1",
+  "sources": ["src"],
+  "test-sources": ["src/test"],
+  "linked-libraries": ["tree-sitter"],
+  "linker-search-paths": ["/opt/homebrew/lib"],
+  "c-include-dirs": ["/opt/homebrew/include"],
+  "targets": {
+    "ink": {
+      "type": "static-lib"
+    },
+    "render": {
+      "type": "executable",
+      "sources": ["src", "examples/render.c3"]
+    }
+  }
+}
