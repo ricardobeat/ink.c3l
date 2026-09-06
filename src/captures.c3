@@ -109,7 +109,7 @@ fn int capture_to_token_type(String capture) @public {
 			}
 		}
 
-		// Strip last dot-segment
+		// Strip last dot-segment (slices are end-inclusive, so exclude the dot)
 		int last_dot = -1;
 		for (int i = candidate.len - 1; i >= 0; i--) {
 			if (candidate.ptr[i] == '.') {
@@ -119,7 +119,7 @@ fn int capture_to_token_type(String capture) @public {
 		}
 
 		if (last_dot <= 0) break;
-		candidate = candidate[0..last_dot];
+		candidate = candidate[0..last_dot-1];
 	}
 
 	return token::TEXT;
