@@ -7,7 +7,7 @@ import ink::captures;
 
 faultdef TS_LEXER_DONE;
 
-struct TsLexer {
+struct TsLexer (lexer::Lexer) {
 	lexer::LexerConfig lexer_config;
 	ts_bind::TSLanguage* language;
 	String query_source;
@@ -21,7 +21,7 @@ fn TsLexer* ts_lexer_new(
 	ts_bind::TSLanguage* language,
 	String query_source
 ) @public {
-	TsLexer* l = mem::tnew(TsLexer);
+	TsLexer* l = mem::new(TsLexer);
 	l.lexer_config.name = name;
 	l.lexer_config.aliases = aliases;
 	l.lexer_config.extensions = extensions;
@@ -31,80 +31,65 @@ fn TsLexer* ts_lexer_new(
 	return l;
 }
 
-struct TsIterState {
-	ts_bind::TSParser* parser;
-	ts_bind::TSTree* tree;
-	ts_bind::TSQuery* query;
-	ts_bind::TSQueryCursor* cursor;
-	String source;
-	uint pos;
-	bool done;
-}
+// ---- Iterator over a pre-collected token array ----
 
-fn void ts_iter_cleanup(TsIterState* state) {
-	ts_bind::ts_query_cursor_delete(state.cursor);
-	ts_bind::ts_query_delete(state.query);
-	ts_bind::ts_tree_delete(state.tree);
-	ts_bind::ts_parser_delete(state.parser);
+struct TsIterState {
+	token::Token* tokens;
+	int count;
+	int index;
 }
 
 fn token::Token? ts_iter_next(void* ctx) {
 	TsIterState* state = (TsIterState*)ctx;
 
-	if (state.done) {
-		ts_iter_cleanup(state);
+	if (state.index >= state.count) {
+		mem::free(state.tokens);
 		return TS_LEXER_DONE~;
 	}
 
-	uint source_len = (uint)state.source.len;
+	token::Token tok = state.tokens[state.index];
+	state.index++;
+	return tok;
+}
 
-	ts_bind::TSQueryMatch match;
-	uint capture_index = 0;
+// ---- Token collection ----
 
-	while (ts_bind::ts_query_cursor_next_capture(state.cursor, &match, &capture_index)) {
-		ts_bind::TSQueryCapture cap = match.captures[capture_index];
-		uint cap_start = ts_bind::ts_node_start_byte(cap.node);
-		uint cap_end = ts_bind::ts_node_end_byte(cap.node);
+/**
+ * Semantic priority of a capture name, used as the primary specificity
+ * key so that e.g. `@function` beats the generic `@variable` when both
+ * capture the same span (common on function definitions).
+ */
+fn sz capture_priority(String name) {
+	if (name.starts_with("function")) return 200;
+	if (name.starts_with("type")) return 160;
+	if (name.starts_with("class")) return 150;
+	if (name.starts_with("constant")) return 120;
+	if (name.starts_with("keyword")) return 100;
+	if (name.starts_with("variable")) return 50;
+	return 60;
+}
 
-		if (cap_start == cap_end) continue;
-		if (cap_start < state.pos) continue;
-
-		uint name_len = 0;
-		char* name_ptr = ts_bind::ts_query_capture_name_for_id(state.query, cap.index, &name_len);
-		String cap_name;
-		if (name_ptr != null && name_len > 0) {
-			cap_name = (String)name_ptr[0..name_len-1];
-		} else {
-			cap_name = "text";
-		}
-
-		if (cap_start > state.pos) {
-			token::Token text_tok;
-			text_tok.type = token::TEXT;
-			text_tok.value = state.source[state.pos..cap_start-1];
-			state.pos = cap_start;
-			return text_tok;
-		}
-
-		state.pos = cap_end;
-		token::Token tok;
-		tok.type = captures::capture_to_token_type(cap_name);
-		tok.value = state.source[cap_start..cap_end-1];
-		return tok;
+/**
+ * Specificity of a capture name: category priority, then dot-segments,
+ * then length. Used to pick the best capture when several cover the same
+ * byte range.
+ */
+fn sz capture_specificity(String name) {
+	sz dots = 0;
+	for (sz i = 0; i < name.len; i++) {
+		if (name.ptr[i] == '.') dots++;
 	}
+	return capture_priority(name) * 10000 + dots * 1000 + name.len;
+}
 
-	if (state.pos < source_len) {
-		token::Token text_tok;
-		text_tok.type = token::TEXT;
-		text_tok.value = state.source[state.pos..source_len-1];
-		state.pos = source_len;
-		state.done = true;
-		return text_tok;
+fn void append_token(token::Token** buf, int* cap, int* count, token::Token tok) {
+	if (*count == *cap) {
+		int ncap = (*cap == 0) ? 256 : *cap * 2;
+		*buf = mem::realloc(*buf, (sz)ncap * token::Token::size);
+		*cap = ncap;
 	}
-
-	state.done = true;
-	ts_iter_cleanup(state);
-	return TS_LEXER_DONE~;
+	(*buf)[*count] = tok;
+	(*count)++;
 }
 
 fn token::TokenIterator*? ts_lexer_tokenise(TsLexer* self, String source) {
@@ -139,14 +124,119 @@ fn token::TokenIterator*? ts_lexer_tokenise(TsLexer* self, String source) {
 	ts_bind::TSNode root = ts_bind::ts_tree_root_node(tree);
 	ts_bind::ts_query_cursor_exec(cursor, query, root);
 
+	// Collect tokens eagerly: this lets us resolve same-span capture
+	// conflicts (e.g. @variable + @function on a function name) by
+	// preferring the most specific capture name.
+	ts_bind::TSQueryMatch match;
+	uint capture_index = 0;
+	uint pos = 0;
+	token::Token* buf = null;
+	int cap = 0;
+	int count = 0;
+
+	bool has_cur = false;
+	uint cur_start = 0;
+	uint cur_end = 0;
+	String cur_name = "text";
+
+	// Prime the first capture.
+	has_cur = ts_bind::ts_query_cursor_next_capture(cursor, &match, &capture_index);
+	if (has_cur) {
+		ts_bind::TSQueryCapture first = match.captures[capture_index];
+		cur_start = ts_bind::ts_node_start_byte(first.node);
+		cur_end = ts_bind::ts_node_end_byte(first.node);
+		uint name_len = 0;
+		char* name_ptr = ts_bind::ts_query_capture_name_for_id(query, first.index, &name_len);
+		if (name_ptr != null && name_len > 0) {
+			cur_name = (String)name_ptr[0..name_len-1];
+		} else {
+			cur_name = "text";
+		}
+		if (cur_start == cur_end) has_cur = false; // drop zero-width captures
+	}
+
+	while (has_cur) {
+		// Look ahead for captures covering the same byte range.
+		bool has_next = ts_bind::ts_query_cursor_next_capture(cursor, &match, &capture_index);
+		if (has_next) {
+			ts_bind::TSQueryCapture nxt = match.captures[capture_index];
+			uint n_start = ts_bind::ts_node_start_byte(nxt.node);
+			uint n_end = ts_bind::ts_node_end_byte(nxt.node);
+			uint name_len = 0;
+			char* name_ptr = ts_bind::ts_query_capture_name_for_id(query, nxt.index, &name_len);
+			String n_name = "text";
+			if (name_ptr != null && name_len > 0) {
+				n_name = (String)name_ptr[0..name_len-1];
+			}
+
+			if (n_start == cur_start && n_end == cur_end) {
+				if (capture_specificity(n_name) > capture_specificity(cur_name)) {
+					cur_name = n_name;
+				}
+				continue; // same span: prefer the more specific name
+			}
+
+			// Different span: emit the current capture, then step forward
+			// with the lookahead as the new current.
+			if (cur_start > pos) {
+				token::Token text_tok;
+				text_tok.type = token::TEXT;
+				text_tok.value = source[pos..cur_start-1];
+				append_token(&buf, &cap, &count, text_tok);
+				pos = cur_start;
+			}
+			if (cur_end > pos) {
+				token::Token tok;
+				tok.type = captures::capture_to_token_type(cur_name);
+				tok.value = source[cur_start..cur_end-1];
+				append_token(&buf, &cap, &count, tok);
+				pos = cur_end;
+			}
+
+			cur_start = n_start;
+			cur_end = n_end;
+			cur_name = n_name;
+			if (cur_start == cur_end) {
+				has_cur = false; // drop zero-width captures
+				if (has_next) has_next = ts_bind::ts_query_cursor_next_capture(cursor, &match, &capture_index);
+			}
+			continue;
+		}
+
+		// No more captures: emit the current one and finish.
+		if (cur_start > pos) {
+			token::Token text_tok;
+			text_tok.type = token::TEXT;
+			text_tok.value = source[pos..cur_start-1];
+			append_token(&buf, &cap, &count, text_tok);
+			pos = cur_start;
+		}
+		if (cur_end > pos) {
+			token::Token tok;
+			tok.type = captures::capture_to_token_type(cur_name);
+			tok.value = source[cur_start..cur_end-1];
+			append_token(&buf, &cap, &count, tok);
+			pos = cur_end;
+		}
+		has_cur = false;
+	}
+
+	if (pos < (uint)source.len) {
+		token::Token text_tok;
+		text_tok.type = token::TEXT;
+		text_tok.value = source[pos..source.len-1];
+		append_token(&buf, &cap, &count, text_tok);
+	}
+
+	ts_bind::ts_query_cursor_delete(cursor);
+	ts_bind::ts_query_delete(query);
+	ts_bind::ts_tree_delete(tree);
+	ts_bind::ts_parser_delete(parser);
+
 	TsIterState* state = mem::tnew(TsIterState);
-	state.parser = parser;
-	state.tree = tree;
-	state.query = query;
-	state.cursor = cursor;
-	state.source = source;
-	state.pos = 0;
-	state.done = false;
+	state.tokens = buf;
+	state.count = count;
+	state.index = 0;
 
 	token::TokenIterator* it = mem::tnew(token::TokenIterator);
 	it.next = &ts_iter_next;
@@ -154,18 +244,18 @@ fn token::TokenIterator*? ts_lexer_tokenise(TsLexer* self, String source) {
 	return it;
 }
 
-fn lexer::LexerConfig* TsLexer.config(&self) {
+fn lexer::LexerConfig* TsLexer.config(&self) @dynamic {
 	return &self.lexer_config;
 }
 
-fn token::TokenIterator*? TsLexer.tokenise(&self, String text) {
+fn token::TokenIterator*? TsLexer.tokenise(&self, String text) @dynamic {
 	return ts_lexer_tokenise((TsLexer*)self, text);
 }
 
-fn lexer::LexerRegistry* TsLexer.registry(&self) {
+fn lexer::LexerRegistry* TsLexer.registry(&self) @dynamic {
 	return self.reg;
 }
 
-fn void TsLexer.setRegistry(&self, lexer::LexerRegistry* reg) {
+fn void TsLexer.setRegistry(&self, lexer::LexerRegistry* reg) @dynamic {
 	((TsLexer*)self).reg = reg;
 }

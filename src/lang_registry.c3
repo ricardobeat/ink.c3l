@@ -20,10 +20,19 @@ fn void register_language(
 	void* language,       // TSLanguage*
 	String query_source   // highlights.scm content
 ) @public {
+	// Deep-copy the config so it outlives the caller's scope/temp allocator.
+	// Literal String contents are static; only the arrays need copying.
+	String name_copy = name.copy(mem);
+	String query_copy = query_source.copy(mem);
+	String[] aliases_copy = mem::new_array(String, aliases.len);
+	for (sz i = 0; i < aliases.len; i++) aliases_copy[i] = aliases[i].copy(mem);
+	String[] extensions_copy = mem::new_array(String, extensions.len);
+	for (sz i = 0; i < extensions.len; i++) extensions_copy[i] = extensions[i].copy(mem);
+
 	ink::ts_lexer::TsLexer* l = ink::ts_lexer::ts_lexer_new(
-		name, aliases, extensions, language, query_source
+		name_copy, aliases_copy, extensions_copy, language, query_copy
 	);
-	lexer::lexer_registry_register(&global_lexer_registry, (lexer::Lexer*)l);
+	lexer::lexer_registry_register(&global_lexer_registry, (lexer::Lexer)l);
 }
 
 /**

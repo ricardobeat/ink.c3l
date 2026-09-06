@@ -21,7 +21,7 @@ const int MAX_LEXERS = 128;
 
 struct LexerRegistry
 {
-	Lexer*[128] lexers;
+	Lexer[128] lexers;
 	int count;
 }
 
@@ -39,7 +39,7 @@ interface Lexer
 /**
  * Register a lexer in the registry.
  */
-fn void lexer_registry_register(LexerRegistry* reg, Lexer* lexer) @public
+fn void lexer_registry_register(LexerRegistry* reg, Lexer lexer) @public
 {
 	if (reg.count >= MAX_LEXERS) return;
 	reg.lexers[reg.count] = lexer;
@@ -54,7 +54,7 @@ fn Lexer*? lexer_registry_by_name(LexerRegistry* reg, String name) @public
 {
 	for (int i = 0; i < reg.count; i++)
 	{
-		Lexer* lexer = reg.lexers[i];
+		Lexer* lexer = &reg.lexers[i];
 		LexerConfig* cfg = lexer.config();
 
 		if (str_eqi(cfg.name, name))
@@ -80,7 +80,7 @@ fn Lexer*? lexer_registry_by_extension(LexerRegistry* reg, String ext) @public
 {
 	for (int i = 0; i < reg.count; i++)
 	{
-		Lexer* lexer = reg.lexers[i];
+		Lexer* lexer = &reg.lexers[i];
 		LexerConfig* cfg = lexer.config();
 
 		foreach (extension : cfg.extensions)
