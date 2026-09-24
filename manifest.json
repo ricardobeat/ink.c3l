@@ -1,0 +1,20 @@
+{
+	"provides": "ink",
+	"sources": ["src/**"],
+	"targets": {
+		"macos-aarch64": {
+			"linked-libraries": ["tree-sitter"],
+			"link-args": ["-L/opt/homebrew/lib"]
+		},
+		"macos-x64": {
+			"linked-libraries": ["tree-sitter"],
+			"link-args": ["-L/usr/local/lib"]
+		},
+		"linux-x64": {
+			"linked-libraries": ["tree-sitter", "dl"]
+		},
+		"linux-aarch64": {
+			"linked-libraries": ["tree-sitter", "dl"]
+		}
+	}
+}
