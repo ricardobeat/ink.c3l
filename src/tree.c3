@@ -94,7 +94,7 @@ const String[] VOID_ELEMENTS = {
 // element has no end tag of its own. HTML and the grammars built on it
 // (Vue, Svelte, Astro) name the parts start_tag / end_tag; JSX names them
 // jsx_opening_element / jsx_closing_element.
-fn String? Tree.tag_to_close(&self, sz pos) @public {
+fn String? Tree.tag_to_close(&self, sz pos) {
 	if (pos == 0) return NOT_A_TAG~;
 	Node n = self.node_at(pos - 1, pos);
 	while (!n.is_null() && n.kind() != "start_tag" && n.kind() != "jsx_opening_element") n = n.parent();
