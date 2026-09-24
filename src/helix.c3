@@ -24,6 +24,10 @@ struct Language {
 	List{String} file_types;
 	// { glob = "..." } entries, matched against the file name.
 	List{String} globs;
+	// Its own auto-pairs, opener then closer, when it lists them; otherwise
+	// the editor's defaults apply, unless no_auto_pairs says not to pair.
+	List{String} auto_pairs;
+	bool no_auto_pairs;
 }
 
 struct Grammar {
@@ -44,6 +48,7 @@ fn void unload() @public {
 	foreach (&l : languages) {
 		l.file_types.free();
 		l.globs.free();
+		l.auto_pairs.free();
 	}
 	languages.free();
 	grammars.free();
@@ -147,6 +152,7 @@ enum Section {
 	OTHER,
 	LANGUAGE,
 	GRAMMAR,
+	AUTO_PAIRS,
 }
 
 fn void load() @local {
@@ -169,12 +175,28 @@ fn void load() @local {
 			} else if (line == "[[grammar]]") {
 				section = GRAMMAR;
 				grammars.push({});
+			} else if (line == "[language.auto-pairs]" && languages.len() > 0) {
+				section = AUTO_PAIRS;
 			} else {
 				section = OTHER;
 			}
 			continue;
 		}
 		if (section == OTHER) continue;
+
+		if (section == AUTO_PAIRS) {
+			// 'open' = 'close', quoted either way.
+			sz i2 = 0;
+			String open = next_quoted(line, &i2);
+			while (i2 < line.len && line[i2] != '=') i2++;
+			String close = next_quoted(line, &i2);
+			Language* l = &languages[languages.len() - 1];
+			if (open.len > 0 && close.len > 0) {
+				l.auto_pairs.push(open);
+				l.auto_pairs.push(close);
+			}
+			continue;
+		}
 
 		sz eq = 0;
 		while (eq < line.len && line[eq] != '=') eq++;
@@ -203,6 +225,8 @@ fn void load() @local {
 					l.grammar = unquote(value);
 				case "file-types":
 					read_file_types(l, value);
+				case "auto-pairs":
+					if (value == "false") l.no_auto_pairs = true;
 				default:
 			}
 		} else {
@@ -285,6 +309,18 @@ fn String next_string(String s, sz* i) @local {
 		if (s[j] == '\\') j++;
 		j++;
 	}
+	*i = j + 1;
+	return s[start:(j < s.len ? j : s.len) - start];
+}
+
+// next_quoted reads the next '...' or "..." string at or after *i.
+fn String next_quoted(String s, sz* i) @local {
+	while (*i < s.len && s[*i] != '\'' && s[*i] != '"') (*i)++;
+	if (*i >= s.len) return "";
+	char q = s[*i];
+	sz start = *i + 1;
+	sz j = start;
+	while (j < s.len && s[j] != q) j++;
 	*i = j + 1;
 	return s[start:(j < s.len ? j : s.len) - start];
 }
