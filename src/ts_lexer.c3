@@ -248,6 +248,8 @@ fn lexer::LexerConfig* TsLexer.config(&self) @dynamic {
 	return &self.lexer_config;
 }
 
+fn void* TsLexer.ts_language(&self) @dynamic => self.language;
+
 fn token::TokenIterator*? TsLexer.tokenise(&self, String text) @dynamic {
 	return ts_lexer_tokenise((TsLexer*)self, text);
 }

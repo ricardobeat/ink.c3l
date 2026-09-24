@@ -34,6 +34,9 @@ interface Lexer
 	fn token::TokenIterator*? tokenise(String text);
 	fn LexerRegistry* registry();
 	fn void setRegistry(LexerRegistry* reg);
+	// The tree-sitter language behind a lexer that has one, for callers that
+	// want the syntax tree itself (see ink::tree).
+	fn void* ts_language() @optional;
 }
 
 /**

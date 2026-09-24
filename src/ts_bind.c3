@@ -55,6 +55,12 @@ extern fn uint ts_node_start_byte(TSNode self);
 extern fn uint ts_node_end_byte(TSNode self);
 extern fn char* ts_node_type(TSNode self);
 extern fn bool ts_node_is_null(TSNode self);
+extern fn bool ts_node_is_named(TSNode self);
+extern fn bool ts_node_is_missing(TSNode self);
+extern fn TSNode ts_node_parent(TSNode self);
+extern fn uint ts_node_child_count(TSNode self);
+extern fn TSNode ts_node_child(TSNode self, uint child_index);
+extern fn TSNode ts_node_descendant_for_byte_range(TSNode self, uint start, uint end);
 
 // ---- Query functions ----
 extern fn TSQuery* ts_query_new(
