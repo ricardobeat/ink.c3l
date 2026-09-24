@@ -14,7 +14,9 @@ import std::collections::list;
 // lists allocate, and unload() frees them.
 
 const String HELIX_REV = "079a789e8cb08ead67f19e1971a1b7438b37354b";
-const char[] LANGUAGES_TOML = $embed("../data/helix/languages.toml");
+// A global, not a const: the registry's strings are slices of it, and a
+// const array may be copied wherever it is used, leaving them dangling.
+char[*] languages_toml = $embed("../data/helix/languages.toml");
 
 struct Language {
 	String name;
@@ -64,14 +66,17 @@ fn Language*? language_for_file(String path) @public {
 	String ext = extension(base);
 	// Globs and whole names are more specific than an extension, so a
 	// tsconfig.json is jsonc rather than json.
-	foreach (&l : languages) {
+	for (sz i = 0; i < languages.len(); i++) {
+		Language* l = languages.get_ref(i);
 		foreach (g : l.globs) if (glob_match(g, base)) return l;
 	}
-	foreach (&l : languages) {
+	for (sz i = 0; i < languages.len(); i++) {
+		Language* l = languages.get_ref(i);
 		foreach (ft : l.file_types) if (ft == base) return l;
 	}
 	if (ext.len == 0) return NOT_FOUND~;
-	foreach (&l : languages) {
+	for (sz i = 0; i < languages.len(); i++) {
+		Language* l = languages.get_ref(i);
 		foreach (ft : l.file_types) if (ft == ext) return l;
 	}
 	return NOT_FOUND~;
@@ -79,7 +84,9 @@ fn Language*? language_for_file(String path) @public {
 
 fn Language*? language_named(String name) @public {
 	load();
-	foreach (&l : languages) if (l.name == name) return l;
+	for (sz i = 0; i < languages.len(); i++) {
+		if (languages[i].name == name) return languages.get_ref(i);
+	}
 	return NOT_FOUND~;
 }
 
@@ -91,7 +98,9 @@ fn Language[] all() @public {
 
 fn Grammar*? grammar_for(Language* l) @public {
 	load();
-	foreach (&g : grammars) if (g.name == l.grammar) return g;
+	for (sz i = 0; i < grammars.len(); i++) {
+		if (grammars[i].name == l.grammar) return grammars.get_ref(i);
+	}
 	return NOT_FOUND~;
 }
 
@@ -158,7 +167,7 @@ enum Section {
 fn void load() @local {
 	if (loaded) return;
 	loaded = true;
-	String src = (String)LANGUAGES_TOML;
+	String src = (String)languages_toml[..];
 	Section section = OTHER;
 	sz i = 0;
 	while (i < src.len) {
