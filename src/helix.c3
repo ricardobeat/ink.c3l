@@ -78,6 +78,12 @@ fn Language*? language_named(String name) @public {
 	return NOT_FOUND~;
 }
 
+// all is every language in the registry.
+fn Language[] all() @public {
+	load();
+	return languages.array_view();
+}
+
 fn Grammar*? grammar_for(Language* l) @public {
 	load();
 	foreach (&g : grammars) if (g.name == l.grammar) return g;

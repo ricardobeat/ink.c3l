@@ -27,11 +27,25 @@ fn lexer::Lexer*? lexer_for_file(String path, String[] roots) @public {
 	return lexer_for(l, roots);
 }
 
+// shipped says whether one of roots has the grammar and query for l.
+fn bool shipped(helix::Language* l, String[] roots) @public {
+	foreach (root : roots) {
+		if (file::exists(lib_path(root, l)) && file::exists(query_path(root, l))) return true;
+	}
+	return false;
+}
+
+fn String lib_path(String root, helix::Language* l) @local
+	=> string::tformat("%s/grammars/libtree-sitter-%s.dylib", root, l.grammar);
+
+fn String query_path(String root, helix::Language* l) @local
+	=> string::tformat("%s/data/queries/%s/highlights.scm", root, l.name);
+
 fn lexer::Lexer*? lexer_for(helix::Language* l, String[] roots) @public {
 	if (try found = lang_registry::find_lexer_by_name(l.name)) return found;
 	foreach (root : roots) {
-		String lib = string::tformat("%s/grammars/libtree-sitter-%s.dylib", root, l.grammar);
-		String query_file = string::tformat("%s/data/queries/%s/highlights.scm", root, l.name);
+		String lib = lib_path(root, l);
+		String query_file = query_path(root, l);
 		if (!file::exists(lib) || !file::exists(query_file)) continue;
 
 		void* h = dlopen(lib.zstr_tcopy(), RTLD_NOW);

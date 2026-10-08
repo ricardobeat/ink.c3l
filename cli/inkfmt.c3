@@ -5,25 +5,24 @@ import ink::style;
 import ink::colour;
 import ink::themes;
 import ink::lexer;
-import ink::lang_registry;
-import ink::ts_lexer;
-import ink::ts_bind;
+import ink::helix;
+import ink::grammars;
 import std::io;
 import std::os;
 import std::os::env;
 import std::core::string;
 
-extern fn void* dlopen(char* filename, int flag);
-extern fn void* dlsym(void* handle, char* symbol);
-const int RTLD_NOW = 2;
+// roots are where inkfmt looks for grammars/ and data/queries/: the current
+// directory, then next to and above the executable.
+String[3] root_list;
 
-alias TsLanguageFunc = fn ts_bind::TSLanguage*();
-
-const char[] QUERY_GO = $embed("../data/queries/go/highlights.scm");
-const char[] QUERY_C = $embed("../data/queries/c/highlights.scm");
-const char[] QUERY_PYTHON = $embed("../data/queries/python/highlights.scm");
-const char[] QUERY_RUST = $embed("../data/queries/rust/highlights.scm");
-const char[] QUERY_C3 = $embed("../data/queries/c3/highlights.scm");
+fn String[] roots() {
+	if (root_list[0].len == 0) {
+		String dir = exe_dir().copy(mem);
+		root_list = { ".", dir, string::format(mem, "%s/..", dir) };
+	}
+	return &root_list;
+}
 
 fn String exe_dir() {
 	String? p = os::env::executable_path();
@@ -38,34 +37,11 @@ fn String exe_dir() {
 	return p[0..slash - 1];
 }
 
-fn bool load_grammar(String lname, String symbol, String[] aliases, String[] extensions, String query) {
-	@pool() {
-		String dir = exe_dir();
-		String c0 = string::tformat("grammars/libtree-sitter-%s.dylib", lname);
-		String c1 = string::tformat("%s/grammars/libtree-sitter-%s.dylib", dir, lname);
-		String c2 = string::tformat("%s/../grammars/libtree-sitter-%s.dylib", dir, lname);
-		String[] candidates = { c0, c1, c2 };
-		ZString sym = symbol.zstr_tcopy();
-		foreach (cand : candidates) {
-			void* h = dlopen(cand.zstr_tcopy(), RTLD_NOW);
-			if (h == null) continue;
-			TsLanguageFunc fn_ptr = (TsLanguageFunc)dlsym(h, sym);
-			if (fn_ptr == null) continue;
-			ts_bind::TSLanguage* lang = fn_ptr();
-			if (lang == null) continue;
-			lang_registry::register_language(lname, aliases, extensions, lang, query);
-			return true;
-		}
-		return false;
-	};
-}
-
-fn void load_all_grammars() {
-	load_grammar("go", "tree_sitter_go", (String[]){"go", "golang"}, (String[]){".go"}, (String)QUERY_GO);
-	load_grammar("c", "tree_sitter_c", (String[]){"c"}, (String[]){".c", ".h"}, (String)QUERY_C);
-	load_grammar("python", "tree_sitter_python", (String[]){"python", "py"}, (String[]){".py"}, (String)QUERY_PYTHON);
-	load_grammar("rust", "tree_sitter_rust", (String[]){"rust", "rs"}, (String[]){".rs"}, (String)QUERY_RUST);
-	load_grammar("c3", "tree_sitter_c3", (String[]){"c3"}, (String[]){".c3"}, (String)QUERY_C3);
+// language_for_name finds a language by its Helix name, or failing that by
+// treating name as an extension, so --lang py and --lang yml work too.
+fn helix::Language*? language_for_name(String name) {
+	if (try l = helix::language_named(name)) return l;
+	return helix::language_for_file(string::tformat("x.%s", name));
 }
 
 fn int count_sub(String hay, String needle) {
@@ -136,10 +112,9 @@ fn void usage() {
 }
 
 fn void list_langs() {
-	lexer::LexerRegistry* reg = lang_registry::get_lexer_registry();
-	for (int i = 0; i < reg.count; i++) {
-		lexer::LexerConfig* cfg = reg.lexers[i].config();
-		io::printf("%s\n", cfg.name);
+	String[] rs = roots();
+	foreach (&l : helix::all()) {
+		if (grammars::shipped(l, rs)) io::printn(l.name);
 	}
 }
 
@@ -154,8 +129,6 @@ fn void main(String[] args) {
 			usage();
 			return;
 		} else if (a == "--list-langs") {
-			themes::register_all_themes();
-			load_all_grammars();
 			list_langs();
 			return;
 		} else if (a == "--lang" || a == "-l") {
@@ -195,33 +168,39 @@ fn void main(String[] args) {
 	String src = (String)data_opt;
 
 	themes::register_all_themes();
-	load_all_grammars();
+	String[] rs = roots();
 
-	String lang_name = lang_opt;
-	if (lang_name.len == 0 && file_opt.len != 0) {
-		lexer::Lexer*? by_file = lang_registry::find_lexer_by_filename(file_opt);
-		if (try lf = by_file) {
-			lang_name = lf.config().name;
-		} else {
-			io::eprintf("no lexer for file: %s (try --lang)\n", file_opt);
+	lexer::Lexer* lex;
+	if (lang_opt.len == 0 && file_opt.len != 0) {
+		lexer::Lexer*? by_file = grammars::lexer_for_file(file_opt, rs);
+		if (catch err = by_file) {
+			if (err == grammars::NOT_SHIPPED) {
+				io::eprintf("no grammar installed for file: %s\n", file_opt);
+			} else {
+				io::eprintf("no language for file: %s (try --lang)\n", file_opt);
+			}
 			os::exit(1);
 		}
-	}
-	if (lang_name.len == 0) {
-		lang_name = shebang_lang(src);
-	}
-	if (lang_name.len == 0) {
-		lang_name = heuristic_lang(src);
-	}
-	if (lang_name.len == 0) {
-		io::eprintf("could not detect language, pass --lang (see --list-langs)\n");
-		os::exit(1);
-	}
-
-	lexer::Lexer*? lexer_opt = lang_registry::find_lexer_by_name(lang_name);
-	if (catch err = lexer_opt) {
-		io::eprintf("unsupported language: %s (see --list-langs)\n", lang_name);
-		os::exit(1);
+		lex = by_file;
+	} else {
+		String lang_name = lang_opt;
+		if (lang_name.len == 0) lang_name = shebang_lang(src);
+		if (lang_name.len == 0) lang_name = heuristic_lang(src);
+		if (lang_name.len == 0) {
+			io::eprintf("could not detect language, pass --lang (see --list-langs)\n");
+			os::exit(1);
+		}
+		helix::Language*? l = language_for_name(lang_name);
+		if (catch l) {
+			io::eprintf("unknown language: %s (see --list-langs)\n", lang_name);
+			os::exit(1);
+		}
+		lexer::Lexer*? by_name = grammars::lexer_for(l, rs);
+		if (catch by_name) {
+			io::eprintf("no grammar installed for language: %s (see --list-langs)\n", l.name);
+			os::exit(1);
+		}
+		lex = by_name;
 	}
 
 	style::Style* theme = style::styles_get(theme_opt);
@@ -231,7 +210,7 @@ fn void main(String[] args) {
 	}
 
 	@pool() {
-		token::TokenIterator*? it_opt = lexer_opt.tokenise(src);
+		token::TokenIterator*? it_opt = lex.tokenise(src);
 		if (try it = it_opt) {
 			while (try tok = token::token_iterator_next(it)) {
 				render_token(theme, tok);
