@@ -11,6 +11,7 @@ import std::io;
 import std::os;
 import std::os::env;
 import std::core::string;
+import std::collections::list;
 
 // roots are where inkfmt looks for grammars/ and data/queries/: the current
 // directory, then next to and above the executable.
@@ -107,8 +108,115 @@ fn void render_token(style::Style* theme, token::Token tok) {
 	io::printf("\x1b[0m");
 }
 
+// HtmlWriter emits a stylesheet followed by a <pre> with classed spans.
+// Runs of tokens that share a style are written as one span, and the span
+// is left out where the style is just the <pre>'s own colours.
+struct HtmlWriter {
+	style::Style* theme;
+	style::StyleEntry base;
+	style::StyleEntry open;
+	List{style::StyleEntry} classes;
+	bool is_open;
+}
+
+fn void html_colour(String prop, colour::Colour c) {
+	io::printf("%s:#%02x%02x%02x;", prop, (int)colour::colour_red(c), (int)colour::colour_green(c), (int)colour::colour_blue(c));
+}
+
+fn void html_escape(String s) {
+	sz start = 0;
+	foreach (i, c : s) {
+		String rep;
+		switch (c) {
+			case '&': rep = "&amp;";
+			case '<': rep = "&lt;";
+			case '>': rep = "&gt;";
+			case '"': rep = "&quot;";
+			default: continue;
+		}
+		io::print(s[start:i - start]);
+		io::print(rep);
+		start = i + 1;
+	}
+	io::print(s[start..]);
+}
+
+fn bool same_entry(style::StyleEntry a, style::StyleEntry b) {
+	return a.fg == b.fg && a.bg == b.bg && a.bold == b.bold && a.italic == b.italic && a.underline == b.underline;
+}
+
+fn style::StyleEntry HtmlWriter.relative_entry(&self, style::StyleEntry entry) {
+	// Colours equal to the <pre>'s are inherited, so they need no span.
+	if (entry.fg == self.base.fg) entry.fg = (colour::Colour)0;
+	if (entry.bg == self.base.bg) entry.bg = (colour::Colour)0;
+	return entry;
+}
+
+fn sz HtmlWriter.class_for(&self, style::StyleEntry entry) {
+	foreach (i, existing : self.classes) {
+		if (same_entry(entry, existing)) return i;
+	}
+	self.classes.push(entry);
+	return self.classes.len() - 1;
+}
+
+fn void html_style(style::StyleEntry entry) {
+	if (colour::colour_is_set(entry.fg)) html_colour("color", entry.fg);
+	if (colour::colour_is_set(entry.bg)) html_colour("background", entry.bg);
+	if (entry.bold) io::print("font-weight:bold;");
+	if (entry.italic) io::print("font-style:italic;");
+	if (entry.underline) io::print("text-decoration:underline;");
+}
+
+fn void HtmlWriter.begin(&self) {
+	self.base = style::style_get(self.theme, token::BACKGROUND);
+	self.base.fg = style::style_get(self.theme, token::TEXT).fg;
+	self.classes.init(mem);
+	// Include parent entries so every result of style_get has a CSS class.
+	for (style::Style* theme = self.theme; theme != null; theme = theme.parent) {
+		for (int i = 0; i < theme.count; i++) {
+			style::StyleEntry entry = self.relative_entry(theme.entries[i]);
+			if (!same_entry(entry, style::style_entry_zero())) self.class_for(entry);
+		}
+	}
+	io::print("<style>\n.ink{");
+	if (colour::colour_is_set(self.base.bg)) html_colour("background", self.base.bg);
+	if (colour::colour_is_set(self.base.fg)) html_colour("color", self.base.fg);
+	io::print("}\n");
+	foreach (i, entry : self.classes) {
+		io::printf(".ink .ink-s%d{", i);
+		html_style(entry);
+		io::print("}\n");
+	}
+	io::print("</style>\n<pre class=\"ink\">");
+}
+
+fn void HtmlWriter.write(&self, token::Token tok) {
+	style::StyleEntry entry = self.relative_entry(style::style_get(self.theme, tok.type));
+	if (!self.is_open || !same_entry(entry, self.open)) {
+		self.close();
+		if (colour::colour_is_set(entry.fg) || colour::colour_is_set(entry.bg) || entry.bold || entry.italic || entry.underline) {
+			io::printf("<span class=\"ink-s%d\">", self.class_for(entry));
+			self.open = entry;
+			self.is_open = true;
+		}
+	}
+	html_escape(tok.value);
+}
+
+fn void HtmlWriter.close(&self) {
+	if (self.is_open) io::print("</span>");
+	self.is_open = false;
+}
+
+fn void HtmlWriter.end(&self) {
+	self.close();
+	io::print("</pre>\n");
+	self.classes.free();
+}
+
 fn void usage() {
-	io::eprintf("usage: inkfmt [--lang NAME] [--file NAME] [--theme NAME] [--list-langs] [--help] < stdin\n");
+	io::eprintf("usage: inkfmt [--lang NAME] [--file NAME] [--theme NAME] [--html] [--list-langs] [--help] < stdin\n");
 }
 
 fn void list_langs() {
@@ -122,12 +230,15 @@ fn void main(String[] args) {
 	String lang_opt = "";
 	String file_opt = "";
 	String theme_opt = "monokai";
+	bool html = false;
 
 	for (sz i = 1; i < args.len; i++) {
 		String a = args[i];
 		if (a == "--help" || a == "-h") {
 			usage();
 			return;
+		} else if (a == "--html") {
+			html = true;
 		} else if (a == "--list-langs") {
 			list_langs();
 			return;
@@ -212,8 +323,15 @@ fn void main(String[] args) {
 	@pool() {
 		token::TokenIterator*? it_opt = lex.tokenise(src);
 		if (try it = it_opt) {
-			while (try tok = token::token_iterator_next(it)) {
-				render_token(theme, tok);
+			if (html) {
+				HtmlWriter w = { .theme = theme };
+				w.begin();
+				while (try tok = token::token_iterator_next(it)) w.write(tok);
+				w.end();
+			} else {
+				while (try tok = token::token_iterator_next(it)) {
+					render_token(theme, tok);
+				}
 			}
 		} else {
 			io::eprintf("failed to tokenise input\n");
