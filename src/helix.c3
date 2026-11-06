@@ -167,6 +167,10 @@ enum Section {
 fn void load() @local {
 	if (loaded) return;
 	loaded = true;
+	// On the heap: a List nobody initialised takes the temp allocator on
+	// its first push, and the registry outlives whatever pool that was.
+	languages.init(mem);
+	grammars.init(mem);
 	String src = (String)languages_toml[..];
 	Section section = OTHER;
 	sz i = 0;
@@ -180,7 +184,11 @@ fn void load() @local {
 		if (line[0] == '[') {
 			if (line == "[[language]]") {
 				section = LANGUAGE;
-				languages.push({});
+				Language l;
+				l.file_types.init(mem);
+				l.globs.init(mem);
+				l.auto_pairs.init(mem);
+				languages.push(l);
 			} else if (line == "[[grammar]]") {
 				section = GRAMMAR;
 				grammars.push({});
