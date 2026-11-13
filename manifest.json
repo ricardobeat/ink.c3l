@@ -1,20 +1,33 @@
 {
 	"provides": "ink",
-	"sources": ["src/*", "src/themes/**", "src/embedded/**"],
+	"sources": [
+		"src/*",
+		"src/themes/**",
+		"src/embedded/**"
+	],
 	"targets": {
 		"macos-aarch64": {
-			"linked-libraries": ["tree-sitter"],
-			"link-args": ["-L/opt/homebrew/lib"]
+			"cflags": "-mmacosx-version-min=12.0"
 		},
 		"macos-x64": {
-			"linked-libraries": ["tree-sitter"],
-			"link-args": ["-L/usr/local/lib"]
+			"cflags": "-mmacosx-version-min=12.0"
 		},
 		"linux-x64": {
-			"linked-libraries": ["tree-sitter", "dl"]
+			"linked-libraries": [
+				"dl"
+			]
 		},
 		"linux-aarch64": {
-			"linked-libraries": ["tree-sitter", "dl"]
+			"linked-libraries": [
+				"dl"
+			]
 		}
-	}
+	},
+	"c-sources": [
+		"vendor/tree-sitter/src/lib.c"
+	],
+	"c-include-dirs": [
+		"vendor/tree-sitter/src",
+		"vendor/tree-sitter/include"
+	]
 }

@@ -6,14 +6,13 @@
   "test-sources": [
     "src/test"
   ],
-  "linked-libraries": [
-    "tree-sitter"
-  ],
-  "linker-search-paths": [
-    "/opt/homebrew/lib"
+  "cflags": "-mmacosx-version-min=12.0",
+  "c-sources": [
+    "vendor/tree-sitter/src/lib.c"
   ],
   "c-include-dirs": [
-    "/opt/homebrew/include"
+    "vendor/tree-sitter/src",
+    "vendor/tree-sitter/include"
   ],
   "targets": {
     "ink": {
