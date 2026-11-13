@@ -6,6 +6,8 @@ source with tree-sitter grammars and highlights it with
 themes in Chroma's style format. It builds as a static library (`out/ink.a`)
 and a command line tool (`out/inkfmt`).
 
+<img width="720" alt="Screenshot 2026-11-13 at 17 13 54" src="https://github.com/user-attachments/assets/011dd25e-aee5-43ed-80bb-274418d721f9" />
+
 ## Supported languages
 
 ink supports 90 languages, listed in [`grammars.txt`](grammars.txt).
