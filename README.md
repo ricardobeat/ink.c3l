@@ -33,12 +33,9 @@ wgsl             nasm             gas              yaml             zig
 
 `inkfmt --list-langs` prints the languages whose grammars are built.
 
-
-
 ## How to use
 
-Needs c3c 0.8.3 or newer and the tree-sitter runtime. On macOS, install the
-runtime with `brew install tree-sitter`.
+Needs [c3c](https://c3-lang.org/getting-started/prebuilt-binaries/) 0.8.3 or newer.
 
 ### The `inkfmt` binary
 
@@ -56,6 +53,44 @@ inkfmt --lang  # sets the language name (or file extension)
 inkfmt --file  # takes the language from the file name
 inkfmt --theme # picks a theme (monokai is the default)
 ```
+
+### Using with C3
+
+Put `ink.c3l` in a library folder and add it as a dependency in your
+`project.json`:
+
+```json
+"dependency-search-paths": ["lib"],
+"dependencies": ["ink"]
+```
+
+```c3
+import ink::grammars, ink::helix, ink::themes, ink::style, ink::colour, ink::token;
+import std::io;
+
+fn void main()
+{
+	themes::register_all_themes();
+	style::Style* theme = style::styles_get("dracula");
+
+	helix::Language* rust = helix::language_named("rust")!!;
+	String[] roots = { "lib/ink.c3l" };
+	token::TokenIterator* tokens = grammars::lexer_for(rust, roots)!!.tokenise("fn main() {}\n")!!;
+
+	while (try tok = token::token_iterator_next(tokens))
+	{
+		style::StyleEntry s = style::style_get(theme, tok.type);
+		if (colour::colour_is_set(s.fg))
+		{
+			io::printf("\e[38;2;%d;%d;%dm", colour::colour_red(s.fg), colour::colour_green(s.fg), colour::colour_blue(s.fg));
+		}
+		io::printf("%s\e[0m", tok.value);
+	}
+}
+```
+
+`roots` is where ink looks for its grammars. Build with `-D EMBED_GRAMMARS` to
+put them in your binary instead.
 
 ### Embedding in C
 
@@ -93,12 +128,12 @@ fn int ink_print_source(char* source, char* lang_name, char* roots) @export @cna
 }
 ```
 
-Compile the shim into a static library and link it from C together with the
-tree-sitter runtime:
+Compile the shim into a static library and link it from C. The tree-sitter
+runtime is included in the library:
 
 ```sh
 c3c --libdir /path/to/libs --lib ink static-lib shim.c3 -o libinkshim
-cc -o myprog main.c libinkshim.a -L/opt/homebrew/lib -ltree-sitter
+cc -o myprog main.c libinkshim.a
 ```
 
 ```c
@@ -113,15 +148,17 @@ int main(void)
 }
 ```
 
-`libtree-sitter` and the grammar set under `roots` have to be present at run
-time, unless the library is built with `-D EMBED_GRAMMARS`.
+The grammar set under `roots` has to be present at run time, unless the
+library is built with `-D EMBED_GRAMMARS`.
 
 ## How it works
 
 ### Tree-sitter
 
 Every language is parsed by a tree-sitter grammar, a shared library exporting
-a `tree_sitter_<name>` function. ink `dlopen`s the library at run time.
+a `tree_sitter_<name>` function. ink `dlopen`s the library at run time. The
+tree-sitter runtime itself is vendored in `vendor/tree-sitter` (MIT) and
+compiled into ink.
 
 Grammars are compiled for your machine, so they aren't checked in: run
 `scripts/build-grammars.sh` after cloning.
