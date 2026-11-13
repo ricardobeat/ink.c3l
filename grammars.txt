@@ -1,6 +1,6 @@
 # The grammars ink ships, by Helix language name (see data/helix/languages.toml).
 # scripts/build-grammars.sh builds whatever is listed here and missing from
-# grammars/ and data/queries/. One per line; # starts a comment.
+# grammars/ and grammars/queries/. One per line; # starts a comment.
 #
 # Covered by another entry: zsh (bash), arduino and cuda (cpp), razor (html).
 # No Helix grammar yet: applescript, gcode, jai, luadoc, ninja, tsv.

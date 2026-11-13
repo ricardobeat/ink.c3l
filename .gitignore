@@ -5,3 +5,6 @@ test_types
 headers/
 build/
 grammars-extended/
+grammars/*.dylib
+grammars/*.dylib.gz
+src/embedded/*.c3

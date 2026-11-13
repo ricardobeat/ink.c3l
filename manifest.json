@@ -1,6 +1,6 @@
 {
 	"provides": "ink",
-	"sources": ["src/*", "src/themes/**"],
+	"sources": ["src/*", "src/themes/**", "src/embedded/**"],
 	"targets": {
 		"macos-aarch64": {
 			"linked-libraries": ["tree-sitter"],
