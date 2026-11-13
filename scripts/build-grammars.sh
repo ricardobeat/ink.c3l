@@ -1,15 +1,31 @@
 #!/bin/sh
-# Builds the grammars listed in grammars.txt: fetches each from the git
-# repository Helix names, at Helix's pinned revision, compiles it into
-# grammars/, and fetches its highlight query into data/queries/. Grammars and
-# queries already there are kept, so this only builds what is missing; delete
-# one to rebuild it. Needs c3c, git, cc and curl.
+# Builds ink's grammars. Each grammar is fetched from the git repository Helix
+# names, at Helix's pinned revision, and compiled into the set's folder; its
+# highlight query goes to <folder>/queries/. Grammars and queries already
+# there are kept, so this only builds what is missing; delete one to rebuild
+# it. Needs c3c, git, cc and curl.
 #
-#   scripts/build-grammars.sh            # everything in grammars.txt
-#   scripts/build-grammars.sh json yaml  # just these
+#   grammars/           the languages in grammars.txt, checked in
+#   grammars-extended/  every language Helix has (gitignored); starts as a
+#                       copy of grammars/ so those aren't rebuilt
+#
+# Programs load grammars/ unless built with -D INK_EXTENDED.
+#
+#   scripts/build-grammars.sh             # grammars/
+#   scripts/build-grammars.sh json yaml   # just these, into grammars/
+#   scripts/build-grammars.sh --extended  # grammars-extended/
+#
+# Some Helix grammars fail to fetch or build; the rest are still installed
+# and the script exits non-zero.
 set -e
 cd "$(dirname "$0")/.."
 c3c build grammars
+
+if [ "$1" = "--extended" ]; then
+	mkdir -p grammars-extended
+	cp -Rn grammars/ grammars-extended/
+	exec ./out/grammars --dir grammars-extended --all
+fi
 if [ $# -eq 0 ]; then
 	set -- $(sed 's/#.*//' grammars.txt)
 fi

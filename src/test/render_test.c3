@@ -98,7 +98,7 @@ fn void test_render_go() @test {
 	assert(theme != null);
 	run_lang_test(
 		"grammars/libtree-sitter-go.dylib", "tree_sitter_go",
-		"data/queries/go/highlights.scm", "data/samples/example.go",
+		"grammars/queries/go/highlights.scm", "data/samples/example.go",
 		"go", "── Go (Monokai) ──────────────────────────", theme
 	);
 }
@@ -109,7 +109,7 @@ fn void test_render_c() @test {
 	assert(theme != null);
 	run_lang_test(
 		"grammars/libtree-sitter-c.dylib", "tree_sitter_c",
-		"data/queries/c/highlights.scm", "data/samples/example.c",
+		"grammars/queries/c/highlights.scm", "data/samples/example.c",
 		"c", "── C (Monokai) ───────────────────────────", theme
 	);
 }
@@ -120,7 +120,7 @@ fn void test_render_python() @test {
 	assert(theme != null);
 	run_lang_test(
 		"grammars/libtree-sitter-python.dylib", "tree_sitter_python",
-		"data/queries/python/highlights.scm", "data/samples/example.py",
+		"grammars/queries/python/highlights.scm", "data/samples/example.py",
 		"python", "── Python (Monokai) ──────────────────────", theme
 	);
 }

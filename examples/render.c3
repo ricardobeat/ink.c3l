@@ -98,21 +98,21 @@ fn void main() @export {
 	render_lang(
 		"grammars/libtree-sitter-go.dylib",
 		"tree_sitter_go",
-		"data/queries/go/highlights.scm",
+		"grammars/queries/go/highlights.scm",
 		"data/samples/example.go",
 		"Go"
 	);
 	render_lang(
 		"grammars/libtree-sitter-c.dylib",
 		"tree_sitter_c",
-		"data/queries/c/highlights.scm",
+		"grammars/queries/c/highlights.scm",
 		"data/samples/example.c",
 		"C"
 	);
 	render_lang(
 		"grammars/libtree-sitter-python.dylib",
 		"tree_sitter_python",
-		"data/queries/python/highlights.scm",
+		"grammars/queries/python/highlights.scm",
 		"data/samples/example.py",
 		"Python"
 	);

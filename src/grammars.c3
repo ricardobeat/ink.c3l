@@ -7,9 +7,15 @@ import ink::ts_bind;
 import std::io;
 
 // The grammars ink ships, loaded when first needed. A file's language comes
-// from the Helix registry; its grammar is grammars/libtree-sitter-<grammar>.dylib
-// and its query data/queries/<language>/highlights.scm, both under an ink
-// root — the ink.c3l directory, wherever the program finds it.
+// from the Helix registry; its grammar is <set>/libtree-sitter-<grammar>.dylib
+// and its query <set>/queries/<language>/highlights.scm, where <set> is
+// INK_GRAMMARS_DIR under an ink root — the ink.c3l directory, wherever the
+// program finds it.
+
+// The grammar set to load: grammars/ holds the languages ink ships, and
+// grammars-extended/ (made by scripts/build-grammars.sh --extended) every
+// language Helix has. Build with -D INK_EXTENDED to use the extended set.
+const String INK_GRAMMARS_DIR @public = $feature(INK_EXTENDED) ??? "grammars-extended" : "grammars";
 
 extern fn void* dlopen(ZString filename, int flag);
 extern fn void* dlsym(void* handle, ZString symbol);
@@ -36,10 +42,10 @@ fn bool shipped(helix::Language* l, String[] roots) @public {
 }
 
 fn String lib_path(String root, helix::Language* l) @local
-	=> string::tformat("%s/grammars/libtree-sitter-%s.dylib", root, l.grammar);
+	=> string::tformat("%s/%s/libtree-sitter-%s.dylib", root, INK_GRAMMARS_DIR, l.grammar);
 
 fn String query_path(String root, helix::Language* l) @local
-	=> string::tformat("%s/data/queries/%s/highlights.scm", root, l.name);
+	=> string::tformat("%s/%s/queries/%s/highlights.scm", root, INK_GRAMMARS_DIR, l.name);
 
 fn lexer::Lexer*? lexer_for(helix::Language* l, String[] roots) @public {
 	if (try found = lang_registry::find_lexer_by_name(l.name)) return found;

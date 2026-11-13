@@ -13,7 +13,7 @@ import std::os::env;
 import std::core::string;
 import std::collections::list;
 
-// roots are where inkfmt looks for grammars/ and data/queries/: the current
+// roots are where inkfmt looks for its grammar set (grammars::INK_GRAMMARS_DIR): the current
 // directory, then next to and above the executable.
 String[3] root_list;
 
