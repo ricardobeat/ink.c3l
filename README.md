@@ -43,14 +43,14 @@ Needs [c3c](https://c3-lang.org/getting-started/prebuilt-binaries/) 0.8.3 or new
 c3c build inkfmt
 cat main.rs | out/inkfmt --lang rust
 cat main.rs | out/inkfmt --lang rust --theme nord --html
-out/inkfmt --file src/style.c3 < src/style.c3
+out/inkfmt src/style.c3
 out/inkfmt --list-langs
 ```
 
 ```sh
 inkfmt --html  # outputs html
 inkfmt --lang  # sets the language name (or file extension)
-inkfmt --file  # takes the language from the file name
+inkfmt --filename  # takes the language from a file name (for stdin)
 inkfmt --theme # picks a theme (monokai is the default)
 ```
 
