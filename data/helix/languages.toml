@@ -858,7 +858,7 @@ args = { console = "internalConsole", attachCommands = [ "platform select remote
 
 [[grammar]]
 name = "c3"
-source = { git = "https://github.com/c3lang/tree-sitter-c3", rev = "15d3502510af0a6c888c663ec8d6aca8791216ce" }
+source = { git = "https://github.com/c3lang/tree-sitter-c3", rev = "3d673a303116418866490ca2cb74551bd13f53d6" }
 
 [[language]]
 name = "cel"
@@ -3524,7 +3524,7 @@ grammar = "qmljs"
 
 [[grammar]]
 name = "qmljs"
-source = { git = "https://github.com/yuja/tree-sitter-qmljs", rev = "0b2b25bcaa7d4925d5f0dda16f6a99c588a437f1" }
+source = { git = "https://github.com/yuja/tree-sitter-qmljs", rev = "de96ed62abded51fcdfcbeaaa120e0dd0d20c697" }
 
 [[language]]
 name = "mermaid"

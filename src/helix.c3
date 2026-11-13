@@ -13,7 +13,7 @@ import std::collections::list;
 // a slice of the embedded file, so the registry copies no text; only its
 // lists allocate, and unload() frees them.
 
-const String HELIX_REV = "079a789e8cb08ead67f19e1971a1b7438b37354b";
+const String HELIX_REV = "a714a818a3a4f6dd5aad3b003a78692f90a1703f";
 // A global, not a const: the registry's strings are slices of it, and a
 // const array may be copied wherever it is used, leaving them dangling.
 char[*] languages_toml = $embed("../data/helix/languages.toml");

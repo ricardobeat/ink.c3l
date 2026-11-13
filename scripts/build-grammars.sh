@@ -21,6 +21,7 @@
 # and the script exits non-zero.
 set -e
 cd "$(dirname "$0")/.."
+mkdir -p src/embedded
 c3c build grammars
 
 if [ "$1" = "--extended" ]; then

@@ -328,3 +328,4 @@
   left: (identifier) @type.definition
   type: (type (identifier) @_ann))
  (#eq? @_ann "TypeAlias"))
+
