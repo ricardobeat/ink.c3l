@@ -43,7 +43,7 @@ fn lexer::Lexer*? lexer_for_file(String path, String[] roots) @public {
 // query for l.
 fn bool shipped(helix::Language* l, String[] roots) @public {
 	$if $feat(EMBED_GRAMMARS):
-		return find(&EMBEDDED_GRAMMARS, l.grammar) != null && find(&EMBEDDED_QUERIES, l.name) != null;
+		return find(embedded_grammars(), l.grammar) != null && find(embedded_queries(), l.name) != null;
 	$else
 		foreach (root : roots) {
 			if (file::exists(lib_path(root, l)) && file::exists(query_path(root, l))) return true;
@@ -61,8 +61,8 @@ fn String query_path(String root, helix::Language* l) @local
 fn lexer::Lexer*? lexer_for(helix::Language* l, String[] roots) @public {
 	if (try found = lang_registry::find_lexer_by_name(l.name)) return found;
 	$if $feat(EMBED_GRAMMARS):
-		EmbeddedFile* packed = find(&EMBEDDED_GRAMMARS, l.grammar);
-		EmbeddedFile* query = find(&EMBEDDED_QUERIES, l.name);
+		EmbeddedFile* packed = find(embedded_grammars(), l.grammar);
+		EmbeddedFile* query = find(embedded_queries(), l.name);
 		if (packed == null || query == null) return NOT_SHIPPED~;
 		return load(l, unpack(packed)!, query.data);
 	$else
@@ -96,12 +96,16 @@ fn lexer::Lexer*? load(helix::Language* l, String lib, String query) @local {
 // dlopen needs a file, so each is unpacked once into the cache directory
 // under a name that includes a hash of its contents.
 
-struct EmbeddedFile @if($feat(EMBED_GRAMMARS)) {
+// The embedded set, from src/embedded/default.c3 or extended.c3.
+macro embedded_grammars() @local => $feat(INK_EXTENDED) ??? &EXTENDED_GRAMMARS : &DEFAULT_GRAMMARS;
+macro embedded_queries() @local => $feat(INK_EXTENDED) ??? &EXTENDED_QUERIES : &DEFAULT_QUERIES;
+
+struct EmbeddedFile @feat(EMBED_GRAMMARS) {
 	String name;
 	String data;
 }
 
-fn EmbeddedFile* find(EmbeddedFile[] files, String name) @local @if($feat(EMBED_GRAMMARS)) {
+fn EmbeddedFile* find(EmbeddedFile[] files, String name) @local @feat(EMBED_GRAMMARS) {
 	foreach (&f : files) {
 		if (f.name == name) return f;
 	}
@@ -111,7 +115,7 @@ fn EmbeddedFile* find(EmbeddedFile[] files, String name) @local @if($feat(EMBED_
 // unpack returns the path of f's grammar in the cache, writing it there
 // first if it isn't already. It writes to a temporary name and renames, so
 // a library another process has loaded is never rewritten in place.
-fn String? unpack(EmbeddedFile* f) @local @if($feat(EMBED_GRAMMARS)) {
+fn String? unpack(EmbeddedFile* f) @local @feat(EMBED_GRAMMARS) {
 	String dir = cache_dir()!;
 	String path = string::tformat("%s/libtree-sitter-%s-%016x.dylib", dir, f.name, fnv64a::hash(f.data));
 	if (file::exists(path)) return path;
@@ -129,7 +133,7 @@ fn String? unpack(EmbeddedFile* f) @local @if($feat(EMBED_GRAMMARS)) {
 
 // cache_dir is ~/Library/Caches/ink on macOS, and $XDG_CACHE_HOME/ink or
 // ~/.cache/ink elsewhere.
-fn String? cache_dir() @local @if($feat(EMBED_GRAMMARS)) {
+fn String? cache_dir() @local @feat(EMBED_GRAMMARS) {
 	$if env::DARWIN:
 		String? home = env::tget_var("HOME");
 		if (catch home) return CACHE_FAILED~;
