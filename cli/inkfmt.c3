@@ -1,5 +1,6 @@
 module inkfmt;
 
+import inkfmt::args;
 import ink::token;
 import ink::style;
 import ink::colour;
@@ -215,10 +216,6 @@ fn void HtmlWriter.end(&self) {
 	self.classes.free();
 }
 
-fn void usage() {
-	io::eprintf("usage: inkfmt [--lang NAME] [--file NAME] [--theme NAME] [--theme-dir DIR] [--html] [--list-langs] [--help] < stdin\n");
-}
-
 fn void list_langs() {
 	String[] rs = roots();
 	foreach (&l : helix::all()) {
@@ -227,63 +224,45 @@ fn void list_langs() {
 }
 
 fn void main(String[] args) {
-	String lang_opt = "";
-	String file_opt = "";
-	String theme_opt = "monokai";
-	String theme_dir = "";
-	bool html = false;
+	args::Options? parsed = args::parse(args);
+	if (catch parsed) os::exit(2);
+	args::Options o = parsed;
+	if (o.help) {
+		args::usage();
+		return;
+	}
+	if (o.list_langs) {
+		list_langs();
+		return;
+	}
+	String lang_opt = o.lang;
+	String file_opt = o.filename;
+	String path_opt = o.path;
+	String theme_opt = o.theme;
+	String theme_dir = o.theme_dir;
+	bool html = o.html;
 
-	for (sz i = 1; i < args.len; i++) {
-		String a = args[i];
-		if (a == "--help" || a == "-h") {
-			usage();
-			return;
-		} else if (a == "--html") {
-			html = true;
-		} else if (a == "--list-langs") {
-			list_langs();
-			return;
-		} else if (a == "--lang" || a == "-l") {
-			if (i + 1 >= args.len) { io::eprintf("--lang needs a value\n"); os::exit(2); }
-			i++;
-			lang_opt = args[i];
-		} else if (a.starts_with("--lang=")) {
-			lang_opt = a["--lang=".len..];
-		} else if (a == "--file" || a == "-f") {
-			if (i + 1 >= args.len) { io::eprintf("--file needs a value\n"); os::exit(2); }
-			i++;
-			file_opt = args[i];
-		} else if (a.starts_with("--file=")) {
-			file_opt = a["--file=".len..];
-		} else if (a == "--theme" || a == "-t") {
-			if (i + 1 >= args.len) { io::eprintf("--theme needs a value\n"); os::exit(2); }
-			i++;
-			theme_opt = args[i];
-		} else if (a.starts_with("--theme=")) {
-			theme_opt = a["--theme=".len..];
-		} else if (a == "--theme-dir") {
-			if (i + 1 >= args.len) { io::eprintf("--theme-dir needs a value\n"); os::exit(2); }
-			i++;
-			theme_dir = args[i];
-		} else if (a.starts_with("--theme-dir=")) {
-			theme_dir = a["--theme-dir=".len..];
-		} else {
-			io::eprintf("unknown argument: %s\n", a);
-			usage();
-			os::exit(2);
+	// A FILE argument is read instead of stdin and names the language too.
+	char[]? data_opt;
+	if (path_opt.len != 0) {
+		data_opt = file::load(mem, path_opt);
+		if (catch err = data_opt) {
+			io::eprintf("can't read %s\n", path_opt);
+			os::exit(1);
+		}
+		if (file_opt.len == 0) file_opt = path_opt;
+	} else {
+		data_opt = io::read_fully(mem, io::stdin());
+		if (catch err = data_opt) {
+			io::eprintf("failed to read stdin\n");
+			os::exit(1);
+		}
+		if (data_opt.len == 0) {
+			io::eprintf("no input on stdin\n");
+			os::exit(1);
 		}
 	}
-
-	char[]? data_opt = io::read_fully(mem, io::stdin());
-	if (catch err = data_opt) {
-		io::eprintf("failed to read stdin\n");
-		os::exit(1);
-	}
-	if (data_opt.len == 0) {
-		io::eprintf("no input on stdin\n");
-		os::exit(1);
-	}
-	String src = (String)data_opt;
+	String src = (String)data_opt!!;
 
 	themes::register_all_themes();
 	if (theme_dir.len != 0) {

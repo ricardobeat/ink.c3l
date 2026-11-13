@@ -28,7 +28,8 @@
     "inkfmt": {
       "type": "executable",
       "sources": [
-        "cli/inkfmt.c3"
+        "cli/inkfmt.c3",
+        "cli/args.c3"
       ]
     },
     "grammars": {
