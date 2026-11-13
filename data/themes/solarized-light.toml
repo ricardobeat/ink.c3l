@@ -1,0 +1,17 @@
+# Converted from Chroma's styles/solarized-light.xml
+
+background = "bg:#fdf6e3"
+keyword = "#859900"
+keyword.constant = "bold"
+keyword.namespace = "bold #dc322f"
+keyword.type = "bold"
+name = "#268bd2"
+name.builtin = "#cb4b16"
+name.class = "#cb4b16"
+name.tag = "bold"
+literal = "#2aa198"
+literal.number = "bold"
+operator.word = "#859900"
+comment = "italic #93a1a1"
+generic = "#d33682"
+text = "#586e75"

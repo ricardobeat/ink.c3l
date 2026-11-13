@@ -1,0 +1,16 @@
+# Converted from Chroma's styles/vs.xml
+
+error = "border:#ff0000"
+background = "bg:#ffffff"
+keyword = "#0000ff"
+keyword.type = "#2b91af"
+name.class = "#2b91af"
+literal.string = "#a31515"
+operator.word = "#0000ff"
+comment = "#008000"
+comment.preproc = "#0000ff"
+generic.emph = "italic"
+generic.heading = "bold"
+generic.prompt = "bold"
+generic.strong = "bold"
+generic.subheading = "bold"

@@ -216,7 +216,7 @@ fn void HtmlWriter.end(&self) {
 }
 
 fn void usage() {
-	io::eprintf("usage: inkfmt [--lang NAME] [--file NAME] [--theme NAME] [--html] [--list-langs] [--help] < stdin\n");
+	io::eprintf("usage: inkfmt [--lang NAME] [--file NAME] [--theme NAME] [--theme-dir DIR] [--html] [--list-langs] [--help] < stdin\n");
 }
 
 fn void list_langs() {
@@ -230,6 +230,7 @@ fn void main(String[] args) {
 	String lang_opt = "";
 	String file_opt = "";
 	String theme_opt = "monokai";
+	String theme_dir = "";
 	bool html = false;
 
 	for (sz i = 1; i < args.len; i++) {
@@ -260,6 +261,12 @@ fn void main(String[] args) {
 			theme_opt = args[i];
 		} else if (a.starts_with("--theme=")) {
 			theme_opt = a["--theme=".len..];
+		} else if (a == "--theme-dir") {
+			if (i + 1 >= args.len) { io::eprintf("--theme-dir needs a value\n"); os::exit(2); }
+			i++;
+			theme_dir = args[i];
+		} else if (a.starts_with("--theme-dir=")) {
+			theme_dir = a["--theme-dir=".len..];
 		} else {
 			io::eprintf("unknown argument: %s\n", a);
 			usage();
@@ -279,6 +286,12 @@ fn void main(String[] args) {
 	String src = (String)data_opt;
 
 	themes::register_all_themes();
+	if (theme_dir.len != 0) {
+		if (catch themes::load_theme_dir(theme_dir)) {
+			io::eprintf("can't read theme dir: %s\n", theme_dir);
+			os::exit(1);
+		}
+	}
 	String[] rs = roots();
 
 	lexer::Lexer* lex;

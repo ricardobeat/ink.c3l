@@ -166,6 +166,121 @@ fn bool token_type_in_category(int tt, int cat) => token_type_category(tt) == ca
  */
 fn bool token_type_in_sub_category(int tt, int subcat) => token_type_sub_category(tt) == subcat;
 
+// ---- Names ----
+
+struct TokenName
+{
+	String name;
+	TokenType type;
+}
+
+// Dotted lower-case names as theme files spell them: KEYWORD_CONSTANT is
+// "keyword.constant".
+const TokenName[*] TOKEN_NAMES @local = {
+	{ "background", BACKGROUND },
+	{ "keyword", KEYWORD },
+	{ "keyword.constant", KEYWORD_CONSTANT },
+	{ "keyword.declaration", KEYWORD_DECLARATION },
+	{ "keyword.namespace", KEYWORD_NAMESPACE },
+	{ "keyword.pseudo", KEYWORD_PSEUDO },
+	{ "keyword.reserved", KEYWORD_RESERVED },
+	{ "keyword.type", KEYWORD_TYPE },
+	{ "name", NAME },
+	{ "name.attribute", NAME_ATTRIBUTE },
+	{ "name.class", NAME_CLASS },
+	{ "name.constant", NAME_CONSTANT },
+	{ "name.decorator", NAME_DECORATOR },
+	{ "name.entity", NAME_ENTITY },
+	{ "name.exception", NAME_EXCEPTION },
+	{ "name.keyword", NAME_KEYWORD },
+	{ "name.label", NAME_LABEL },
+	{ "name.namespace", NAME_NAMESPACE },
+	{ "name.operator", NAME_OPERATOR },
+	{ "name.other", NAME_OTHER },
+	{ "name.pseudo", NAME_PSEUDO },
+	{ "name.property", NAME_PROPERTY },
+	{ "name.tag", NAME_TAG },
+	{ "name.builtin", NAME_BUILTIN },
+	{ "name.builtin.pseudo", NAME_BUILTIN_PSEUDO },
+	{ "name.variable", NAME_VARIABLE },
+	{ "name.variable.anonymous", NAME_VARIABLE_ANONYMOUS },
+	{ "name.variable.class", NAME_VARIABLE_CLASS },
+	{ "name.variable.global", NAME_VARIABLE_GLOBAL },
+	{ "name.variable.instance", NAME_VARIABLE_INSTANCE },
+	{ "name.variable.magic", NAME_VARIABLE_MAGIC },
+	{ "name.function", NAME_FUNCTION },
+	{ "name.function.magic", NAME_FUNCTION_MAGIC },
+	{ "literal", LITERAL },
+	{ "literal.date", LITERAL_DATE },
+	{ "literal.other", LITERAL_OTHER },
+	{ "literal.string", LITERAL_STRING },
+	{ "literal.string.affix", LITERAL_STRING_AFFIX },
+	{ "literal.string.atom", LITERAL_STRING_ATOM },
+	{ "literal.string.backtick", LITERAL_STRING_BACKTICK },
+	{ "literal.string.boolean", LITERAL_STRING_BOOLEAN },
+	{ "literal.string.char", LITERAL_STRING_CHAR },
+	{ "literal.string.delimiter", LITERAL_STRING_DELIMITER },
+	{ "literal.string.doc", LITERAL_STRING_DOC },
+	{ "literal.string.double", LITERAL_STRING_DOUBLE },
+	{ "literal.string.escape", LITERAL_STRING_ESCAPE },
+	{ "literal.string.heredoc", LITERAL_STRING_HEREDOC },
+	{ "literal.string.interpol", LITERAL_STRING_INTERPOL },
+	{ "literal.string.name", LITERAL_STRING_NAME },
+	{ "literal.string.other", LITERAL_STRING_OTHER },
+	{ "literal.string.regex", LITERAL_STRING_REGEX },
+	{ "literal.string.single", LITERAL_STRING_SINGLE },
+	{ "literal.string.symbol", LITERAL_STRING_SYMBOL },
+	{ "literal.number", LITERAL_NUMBER },
+	{ "literal.number.bin", LITERAL_NUMBER_BIN },
+	{ "literal.number.float", LITERAL_NUMBER_FLOAT },
+	{ "literal.number.hex", LITERAL_NUMBER_HEX },
+	{ "literal.number.integer", LITERAL_NUMBER_INTEGER },
+	{ "literal.number.integer.long", LITERAL_NUMBER_INTEGER_LONG },
+	{ "literal.number.oct", LITERAL_NUMBER_OCT },
+	{ "literal.number.byte", LITERAL_NUMBER_BYTE },
+	{ "operator", OPERATOR },
+	{ "operator.word", OPERATOR_WORD },
+	{ "operator.reserved", OPERATOR_RESERVED },
+	{ "punctuation", PUNCTUATION },
+	{ "comment", COMMENT },
+	{ "comment.hashbang", COMMENT_HASHBANG },
+	{ "comment.multiline", COMMENT_MULTILINE },
+	{ "comment.single", COMMENT_SINGLE },
+	{ "comment.special", COMMENT_SPECIAL },
+	{ "comment.preproc", COMMENT_PREPROC },
+	{ "comment.preproc.file", COMMENT_PREPROC_FILE },
+	{ "generic", GENERIC },
+	{ "generic.deleted", GENERIC_DELETED },
+	{ "generic.emph", GENERIC_EMPH },
+	{ "generic.error", GENERIC_ERROR },
+	{ "generic.heading", GENERIC_HEADING },
+	{ "generic.inserted", GENERIC_INSERTED },
+	{ "generic.output", GENERIC_OUTPUT },
+	{ "generic.prompt", GENERIC_PROMPT },
+	{ "generic.strong", GENERIC_STRONG },
+	{ "generic.subheading", GENERIC_SUBHEADING },
+	{ "generic.traceback", GENERIC_TRACEBACK },
+	{ "generic.underline", GENERIC_UNDERLINE },
+	{ "text", TEXT },
+	{ "text.whitespace", TEXT_WHITESPACE },
+	{ "text.symbol", TEXT_SYMBOL },
+	{ "text.punctuation", TEXT_PUNCTUATION },
+};
+
+/**
+ * Look up a token type by its dotted name, e.g. "literal.string.double".
+ */
+fn TokenType? token_type_from_name(String name) @public
+{
+	foreach (n : TOKEN_NAMES)
+	{
+		if (n.name == name) return n.type;
+	}
+	return UNKNOWN_TOKEN_NAME~;
+}
+
+faultdef UNKNOWN_TOKEN_NAME;
+
 // ---- Token ----
 
 /**

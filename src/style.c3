@@ -2,9 +2,9 @@ module ink::style;
 
 import ink::colour;
 import ink::token;
+import std::collections::list;
 
 const int MAX_ENTRIES = 256;
-const int MAX_STYLES = 64;
 
 /**
  * A single style entry for a token type.
@@ -254,37 +254,34 @@ fn StyleEntry style_get(Style* style, int tt) @public
 }
 
 /**
- * Global registry of named styles.
+ * A named style in the global registry.
  */
-struct StyleRegistry
+struct NamedStyle
 {
-	String[64] names;
-	Style*[64] styles;
-	int count;
+	String name;
+	Style* style;
 }
 
-StyleRegistry global_style_registry;
+// On the heap: a List nobody initialised takes the temp allocator on its
+// first push, and the registry outlives whatever pool that was.
+List{NamedStyle} global_style_registry;
 
 /**
- * Register a named style in the global registry.
+ * Register a named style in the global registry, replacing any style
+ * already registered under that name.
  */
 fn void styles_register(String name, Style* style) @public
 {
-	for (int i = 0; i < global_style_registry.count; i++)
+	if (!global_style_registry.is_initialized()) global_style_registry.init(mem);
+	foreach (&entry : global_style_registry)
 	{
-		if (global_style_registry.names[i] == name)
+		if (entry.name == name)
 		{
-			global_style_registry.styles[i] = style;
+			entry.style = style;
 			return;
 		}
 	}
-
-	if (global_style_registry.count < 64)
-	{
-		global_style_registry.names[global_style_registry.count] = name;
-		global_style_registry.styles[global_style_registry.count] = style;
-		global_style_registry.count++;
-	}
+	global_style_registry.push({ name, style });
 }
 
 /**
@@ -292,12 +289,9 @@ fn void styles_register(String name, Style* style) @public
  */
 fn Style* styles_get(String name) @public
 {
-	for (int i = 0; i < global_style_registry.count; i++)
+	foreach (entry : global_style_registry)
 	{
-		if (global_style_registry.names[i] == name)
-		{
-			return global_style_registry.styles[i];
-		}
+		if (entry.name == name) return entry.style;
 	}
 	return null;
 }
